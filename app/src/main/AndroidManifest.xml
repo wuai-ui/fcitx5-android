@@ -36,6 +36,9 @@
 
     <uses-permission android:name="${applicationId}.permission.PLUGIN" />
 
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+
     <application
         android:name=".FcitxApplication"
         android:allowBackup="true"

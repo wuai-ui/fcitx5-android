@@ -78,8 +78,75 @@ import splitties.dimensions.dp
 import splitties.resources.styledColor
 import timber.log.Timber
 import kotlin.math.max
+import android.widget.Toast
+import android.os.Handler
+import android.os.Looper
+import android.content.ClipboardManager
+import android.content.ClipData
+import android.content.ContentResolver
+import android.database.ContentObserver
+import android.net.Uri
+import android.provider.MediaStore
+import android.content.Context
+
 
 class FcitxInputMethodService : LifecycleInputMethodService() {
+
+    // --- 极客注入SIT 诊断级截屏嗅探器 ---
+    private var screenshotObserver: ContentObserver? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    private fun showProbeLog(msg: String) {
+        mainHandler.post {
+            Toast.makeText(this, "探针: $msg", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun startScreenshotListener() {
+        try {
+            showProbeLog("0. 嗅探挂载成功")
+            screenshotObserver = object : ContentObserver(mainHandler) {
+                override fun onChange(selfChange: Boolean, uri: Uri?) {
+                    super.onChange(selfChange, uri)
+                    if (uri == null) return
+                    
+                    showProbeLog("1. 捕获媒体变动")
+                    
+                    try {
+                        val cursor = contentResolver.query(uri, arrayOf(MediaStore.Images.Media.DATA), null, null, null)
+                        cursor?.use {
+                            if (it.moveToFirst()) {
+                                val realPath = it.getString(0) ?: "路径为空"
+                                showProbeLog("2. 路径: $realPath")
+                                
+                                if (realPath.contains("screenshot", ignoreCase = true)) {
+                                    showProbeLog("3. 匹配成功，尝试写入剪贴板")
+                                    val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                    val clip = ClipData.newUri(contentResolver, "AutoScreenshot", uri)
+                                    clipboard.setPrimaryClip(clip)
+                                    showProbeLog("4. 写入完成！")
+                                } else {
+                                    showProbeLog("未匹配: $realPath")
+                                }
+                            } else {
+                                showProbeLog("游标为空")
+                            }
+                        }
+                    } catch (e: Exception) {
+                        showProbeLog("异常报错: ${e.message}")
+                    }
+                }
+            }
+            contentResolver.registerContentObserver(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                true,
+                screenshotObserver!!
+            )
+        } catch (e: Exception) {
+            showProbeLog("启动异常: ${e.message}")
+        }
+    }
+    // --- 注入结束 ---
 
     private lateinit var fcitx: FcitxConnection
 
@@ -218,6 +285,7 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
             }
         }
         super.onCreate()
+        startScreenshotListener()
         decorView = window.window!!.decorView
         contentView = decorView.findViewById(android.R.id.content)
         lastKnownConfig = resources.configuration
