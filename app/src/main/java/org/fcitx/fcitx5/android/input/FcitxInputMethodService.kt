@@ -88,6 +88,7 @@ import android.database.ContentObserver
 import android.net.Uri
 import android.provider.MediaStore
 import android.content.Context
+import android.util.Log
 
 
 class FcitxInputMethodService : LifecycleInputMethodService() {
@@ -97,9 +98,8 @@ class FcitxInputMethodService : LifecycleInputMethodService() {
     private val mainHandler = Handler(Looper.getMainLooper())
 
     private fun showProbeLog(msg: String) {
-        mainHandler.post {
-            Toast.makeText(this, "探针: $msg", Toast.LENGTH_SHORT).show()
-        }
+        // 直接绕过 UI 层，把信息死死钉进安卓内核日志里！标签设为 SIT_PROBE
+        Log.i("SIT_PROBE", msg)
     }
 
     private fun startScreenshotListener() {
